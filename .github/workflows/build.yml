@@ -52,4 +52,16 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: dfu-util
-        path: ./src/dfu-*
+        path: ./src/dfu-util
+        
+    - name: Upload dfu-prefix binary
+      uses: actions/upload-artifact@v2
+      with:
+        name: dfu-prefix
+        path: ./src/dfu-util
+        
+    - name: Upload dfu-suffix binary
+      uses: actions/upload-artifact@v2
+      with:
+        name: dfu-suffix
+        path: ./src/dfu-util
