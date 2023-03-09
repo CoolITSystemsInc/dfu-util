@@ -11,13 +11,18 @@ on:
   schedule:
     - cron: '0 9 * * 0'
   workflow_dispatch:
-      
-env: 
-  xcompile_vars: 'CC=arm-linux-musleabihf-gcc CXX=arm-linux-musleabihf-g++ INCLUDE="-I/usr/arm-linux-musleabihf/include/"' 
-
+  
 jobs:
   build-dfu-util:
     runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        arch:
+          - armv7l
+          - arm
+    env:   
+      xcompile_vars: 'CC=${{matrix.arch}}-linux-musleabihf-gcc CXX=${{matrix.arch}}-linux-musleabihf-g++ INCLUDE="-I/usr/${{matrix.arch}}-linux-musleabihf/include/"'
 
     steps:
     - uses: actions/checkout@v2
@@ -29,13 +34,13 @@ jobs:
         github_token: ${{ secrets.ACTIONS_AUTH }}        
         workflow: musl-artifact.yaml
         workflow_conclusion: success
-        name: arm-linux-musleabihf-cross
+        name: ${{ matrix.arch }}-linux-musleabihf-cross
         path: .
 
     - name: Copy cross-compiler to usr folder & add pandoc
       run: |
-        tar -xvf arm-linux-musleabihf-cross.tgz
-        sudo cp -r ./arm-linux-musleabihf-cross/* /usr/
+        tar -xvf ${{ matrix.arch }}-linux-musleabihf-cross.tgz
+        sudo cp -r ./${{ matrix.arch }}-linux-musleabihf-cross/* /usr/
         sudo apt-get update && sudo apt-get install pandoc
 
     - name: Get libusb to include
@@ -43,17 +48,17 @@ jobs:
         wget https://github.com/libusb/libusb/releases/download/v1.0.24/libusb-1.0.24.tar.bz2
         tar -xf libusb-1.0.24.tar.bz2
         cd libusb-1.0.24
-        ./configure --host=arm-linux-musleabihf --prefix=/usr/arm-linux-musleabihf/ --disable-udev
+        ./configure --host=${{ matrix.arch }}-linux-musleabihf --prefix=/usr/${{ matrix.arch }}-linux-musleabihf/ --disable-udev
         sudo make install
-        sudo cp -r ./libusb/* /usr/arm-linux-musleabihf/include/
-        sudo cp -r ./libusb/.libs/ /usr/arm-linux-musleabihf/include/
+        sudo cp -r ./libusb/* /usr/${{ matrix.arch }}-linux-musleabihf/include/
+        sudo cp -r ./libusb/.libs/ /usr/${{ matrix.arch }}-linux-musleabihf/include/
         cd ..
 
     - name: Compile dfu-util
       run: |
         sudo ./autogen.sh
         sudo autoreconf -if
-        sudo ./configure --host=arm-linux-musleabihf --prefix=/usr/arm-linux-musleabihf/ USB_CFLAGS="-I/usr/arm-linux-musleabihf/include/" USB_LIBS="-L/usr/arm-linux-musleabihf/lib/ -lusb-1.0"
+        sudo ./configure --host=${{ matrix.arch }}-linux-musleabihf --prefix=/usr/${{ matrix.arch }}-linux-musleabihf/ USB_CFLAGS="-I/usr/${{ matrix.arch }}-linux-musleabihf/include/" USB_LIBS="-L/usr/${{ matrix.arch }}-linux-musleabihf/lib/ -lusb-1.0"
         sudo chmod 777 config.h
         sudo echo "#define HAVE_NANOSLEEP 1" >> config.h
         sudo make ${{ env.xcompile_vars }}
@@ -61,17 +66,17 @@ jobs:
     - name: Upload dfu-util binary
       uses: actions/upload-artifact@v2
       with:
-        name: dfu-util
+        name: dfu-util-${{ matrix.arch }}
         path: ./src/dfu-util
         
     - name: Upload dfu-prefix binary
       uses: actions/upload-artifact@v2
       with:
-        name: dfu-prefix
+        name: dfu-prefix-${{ matrix.arch }}
         path: ./src/dfu-util
         
     - name: Upload dfu-suffix binary
       uses: actions/upload-artifact@v2
       with:
-        name: dfu-suffix
+        name: dfu-suffix-${{ matrix.arch }}
         path: ./src/dfu-util
