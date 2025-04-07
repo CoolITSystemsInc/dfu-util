@@ -64,13 +64,14 @@ jobs:
     - name: Install libusb as a dependancy
       run: |
           sudo rm ./libusb-build/libusb-build-${{ matrix.arch }}.zip
-          sudo cp -r libusb-build/* /usr/${{ matrix.arch }}/
+          sudo cp -r libusb-build/include/libusb*/* /usr/${{ matrix.arch }}/include
+          sudo cp -r libusb-build/lib/* /usr/${{ matrix.arch }}/lib
 
     - name: Compile dfu-util
       run: |
         sudo ./autogen.sh
         sudo autoreconf -if
-        sudo ./configure --host=${{ matrix.arch }} --prefix=/usr/${{ matrix.arch }}/ USB_CFLAGS="-I/usr/${{ matrix.arch }}/include/libusb-1.0/" USB_LIBS="-L/usr/${{ matrix.arch }}/lib/ -lusb-1.0"
+        sudo ./configure --host=${{ matrix.arch }} --prefix=/usr/${{ matrix.arch }}/ USB_CFLAGS="-I/usr/${{ matrix.arch }}/include/" USB_LIBS="-L/usr/${{ matrix.arch }}/lib/ -lusb-1.0"
         sudo chmod 777 config.h
         sudo echo "#define HAVE_NANOSLEEP 1" >> config.h
         sudo make $xcompile_vars
