@@ -27,7 +27,7 @@ jobs:
     - name: Set environment variables based on architecture
       run: |
         echo "Setting environment variables based on architecture"
-        echo "xcompile_vars=CC=${{ matrix.arch }}-g++ CXX=${{ matrix.arch }}-g++ INCLUDE=\"-I/usr/${{ matrix.arch }}/include\"" >> $GITHUB_ENV
+        echo "xcompile_vars=CC=${{ matrix.arch }}-gcc CXX=${{ matrix.arch }}-g++ INCLUDE=\"-I/usr/${{ matrix.arch }}/include\"" >> $GITHUB_ENV
     
     - uses: actions/checkout@v4
     - name: Download musl-cross-compiler library from release
