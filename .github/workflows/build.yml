@@ -4,74 +4,92 @@ on:
   push:
     branches:
       - master
-      - cicd
+      - ci*
   pull_request:
     branches:
       - master
   schedule:
-    - cron: '0 9 * * 0'
+    - cron: '0 9 1 * 0'
   workflow_dispatch:
       
-env: 
-  xcompile_vars: 'CC=arm-linux-musleabihf-gcc CXX=arm-linux-musleabihf-g++ INCLUDE="-I/usr/arm-linux-musleabihf/include/"' 
-
 jobs:
   build-dfu-util:
+    name: Run cross-compiler download and verification for each architecture
+    strategy:
+      matrix:
+        arch:
+          - arm-linux-musleabihf
+          - aarch64-linux-musl
+          
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
-
-    - name: Set up cross-compiler
-      uses: dawidd6/action-download-artifact@v2
-      with:
-        repo: coolitsystemsinc/cdu-build
-        github_token: ${{ secrets.ACTIONS_AUTH }}        
-        workflow: musl-artifact.yaml
-        workflow_conclusion: success
-        name: arm-linux-musleabihf-cross
-        path: .
-
-    - name: Copy cross-compiler to usr folder & add pandoc
+    - name: Set environment variables based on architecture
       run: |
-        tar -xvf arm-linux-musleabihf-cross.tgz
-        sudo cp -r ./arm-linux-musleabihf-cross/* /usr/
+        echo "Setting environment variables based on architecture"
+        echo "xcompile_vars=CC=${{ matrix.arch }}-gcc CXX=${{ matrix.arch }}-g++ INCLUDE=\"-I/usr/${{ matrix.arch }}/include\"" >> $GITHUB_ENV
+    
+    - uses: actions/checkout@v4
+    - name: Download musl-cross-compiler library from release
+      id: musl-cross-compiler
+      uses: robinraju/release-downloader@v1.8
+      with:
+        repository: coolitsystemsinc/cdu-lib
+        latest: true
+        token: ${{ secrets.ACTIONS_AUTH }}
+        fileName: "${{ matrix.arch }}-cross.tgz"
+        extract: false
+        out-file-path: .
+
+    - name: Copy cross-compiler to usr folder
+      run: |
+        tar -xvf ${{ matrix.arch }}-cross.tgz
+        sudo cp -r ./${{ matrix.arch }}-cross/* /usr/
+
+    - name: Add pandoc
+      run: |
         sudo apt-get update && sudo apt-get install pandoc
 
-    - name: Get libusb to include
+    - name: Get libusb files to include
+      id: libusb
+      uses: robinraju/release-downloader@v1.8
+      with:
+        repository: coolitsystemsinc/cdu-lib
+        latest: true
+        token: ${{ secrets.ACTIONS_AUTH }}
+        fileName: "libusb-build-${{ matrix.arch }}.zip"
+        extract: true
+        out-file-path: ./libusb-build/
+
+    - name: Install libusb as a dependancy
       run: |
-        wget https://github.com/libusb/libusb/releases/download/v1.0.24/libusb-1.0.24.tar.bz2
-        tar -xf libusb-1.0.24.tar.bz2
-        cd libusb-1.0.24
-        ./configure --host=arm-linux-musleabihf --prefix=/usr/arm-linux-musleabihf/ --disable-udev
-        sudo make install
-        sudo cp -r ./libusb/* /usr/arm-linux-musleabihf/include/
-        sudo cp -r ./libusb/.libs/ /usr/arm-linux-musleabihf/include/
-        cd ..
+          sudo rm ./libusb-build/libusb-build-${{ matrix.arch }}.zip
+          sudo cp -r libusb-build/include/libusb*/* /usr/${{ matrix.arch }}/include
+          sudo cp -r libusb-build/lib/* /usr/${{ matrix.arch }}/lib
 
     - name: Compile dfu-util
       run: |
         sudo ./autogen.sh
         sudo autoreconf -if
-        sudo ./configure --host=arm-linux-musleabihf --prefix=/usr/arm-linux-musleabihf/ USB_CFLAGS="-I/usr/arm-linux-musleabihf/include/" USB_LIBS="-L/usr/arm-linux-musleabihf/lib/ -lusb-1.0"
+        sudo ./configure --host=${{ matrix.arch }} --prefix=/usr/${{ matrix.arch }}/ USB_CFLAGS="-I/usr/${{ matrix.arch }}/include/" USB_LIBS="-L/usr/${{ matrix.arch }}/lib/ -lusb-1.0"
         sudo chmod 777 config.h
         sudo echo "#define HAVE_NANOSLEEP 1" >> config.h
-        sudo make ${{ env.xcompile_vars }}
+        sudo make $xcompile_vars
     
     - name: Upload dfu-util binary
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
-        name: dfu-util
+        name: dfu-util-${{ matrix.arch }}
         path: ./src/dfu-util
         
     - name: Upload dfu-prefix binary
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
-        name: dfu-prefix
+        name: dfu-prefix-${{ matrix.arch }}
         path: ./src/dfu-prefix
         
     - name: Upload dfu-suffix binary
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
-        name: dfu-suffix
+        name: dfu-suffix-${{ matrix.arch }}
         path: ./src/dfu-suffix
