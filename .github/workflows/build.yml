@@ -86,17 +86,17 @@ jobs:
     - name: Upload dfu-util binary
       uses: actions/upload-artifact@v4
       with:
-        name: dfu-util-${{ matrix.arch }}
+        name: dfu-util${{ matrix.arch == 'aarch64-linux-musl' && '-aarch64' || '' }}
         path: ./src/dfu-util
         
     - name: Upload dfu-prefix binary
       uses: actions/upload-artifact@v4
       with:
-        name: dfu-prefix-${{ matrix.arch }}
+        name: dfu-prefix${{ matrix.arch == 'aarch64-linux-musl' && '-aarch64' || '' }}
         path: ./src/dfu-prefix
         
     - name: Upload dfu-suffix binary
       uses: actions/upload-artifact@v4
       with:
-        name: dfu-suffix-${{ matrix.arch }}
+        name: dfu-suffix${{ matrix.arch == 'aarch64-linux-musl' && '-aarch64' || '' }}
         path: ./src/dfu-suffix
